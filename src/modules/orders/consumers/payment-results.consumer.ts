@@ -35,7 +35,7 @@ interface PaymentResultEvent {
     | typeof PAYMENT_STATUS_CHANGED_EVENT;
   data: {
     orderId: string;
-    status?: string;
+    status?: unknown;
   };
 }
 
@@ -64,9 +64,7 @@ function isPaymentResultEvent(value: unknown): value is PaymentResultEvent {
     return typeof value.data.status === 'string';
   }
 
-  return (
-    value.data.status === undefined || typeof value.data.status === 'string'
-  );
+  return true;
 }
 
 @Injectable()
@@ -235,7 +233,7 @@ export class PaymentResultsConsumer implements OnModuleInit, OnModuleDestroy {
         event.eventId,
         event.eventType,
         event.data.orderId,
-        event.data.status,
+        typeof event.data.status === 'string' ? event.data.status : undefined,
       );
 
       channel.ack(message);
@@ -246,10 +244,8 @@ export class PaymentResultsConsumer implements OnModuleInit, OnModuleDestroy {
       }
 
       const retryHeader = message.properties.headers?.retryCount;
-      const retries =
-        typeof retryHeader === 'number' && Number.isInteger(retryHeader)
-          ? retryHeader
-          : 0;
+      const parsedRetries = Number(retryHeader ?? 0);
+      const retries = Number.isFinite(parsedRetries) ? parsedRetries : 0;
 
       if (retries >= MAX_PROCESSING_RETRIES) {
         channel.nack(message, false, false);
